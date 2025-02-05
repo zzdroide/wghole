@@ -1,0 +1,58 @@
+networks:
+  wghole:
+    ipam:
+      config:
+        - subnet: 10.172.1.0/24   # 172 as in 0xAC (apple computer)
+
+services:
+
+  wg-easy:
+    container_name: wghole-wg
+    image: ghcr.io/wg-easy/wg-easy:14
+    volumes:
+      - ./volumes/wg:/etc/wireguard
+    restart: unless-stopped
+
+    networks:
+      wghole:
+        ipv4_address: 10.172.1.2
+    environment:
+      PASSWORD_HASH: ${PASSWORD_HASH}
+      WG_HOST: ${WG_HOST}
+      WG_PORT: 51172
+      WG_DEFAULT_DNS: 10.172.1.3
+      WG_DEFAULT_ADDRESS: 10.172.0.x
+      WG_ALLOWED_IPS: 10.172.1.0/24
+      PORT: 80
+    ports:
+      - 0.0.0.0:51172:51172/udp
+      - 127.0.0.1:8173:80/tcp
+
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+      - net.ipv4.ip_forward=1
+
+
+  pihole:
+    container_name: pihole
+    image: pihole/pihole:2024.07.0
+    volumes:
+      - ./volumes/pihole/pihole:/etc/pihole/
+      - ./volumes/pihole/dnsmasq.d:/etc/dnsmasq.d/
+    restart: unless-stopped
+
+    networks:
+      wghole:
+        ipv4_address: 10.172.1.3
+    environment:
+      WEBPASSWORD: ${WEBPASSWORD}
+      FTLCONF_LOCAL_IPV4: 10.172.1.3
+      QUERY_LOGGING: "false"
+    ports:
+      - 127.0.0.1:8172:80
+
+    cap_add:
+      - NET_ADMIN
